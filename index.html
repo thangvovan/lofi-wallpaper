@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lofi Girl Wallpaper</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Background: two layers so station artwork can crossfade -->
+  <div id="bg">
+    <div class="bg-layer" id="bg-a"><div class="bg-blur"></div><div class="bg-main"></div></div>
+    <div class="bg-layer" id="bg-b"><div class="bg-blur"></div><div class="bg-main"></div></div>
+  </div>
+  <div id="grade"></div>
+  <div id="vignette"></div>
+  <div id="grain"></div>
+
+  <!-- Clock, with the station list tucked under it -->
+  <div id="corner">
+    <div id="clock" class="hud">
+      <div id="clock-time">--:--</div>
+      <div id="clock-date"></div>
+    </div>
+
+    <nav id="stations" aria-label="Wallpapers">
+      <div class="stations-head">wallpapers</div>
+      <ul id="station-list"></ul>
+    </nav>
+  </div>
+
+  <!-- Current wallpaper + what is playing -->
+  <div id="np" class="hud">
+    <div id="np-eq"><i></i><i></i><i></i><i></i><i></i></div>
+    <div id="np-text">
+      <div id="np-title">—</div>
+      <div id="np-sub">lofi girl</div>
+    </div>
+  </div>
+
+  <script src="js/stations.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/visibility.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
