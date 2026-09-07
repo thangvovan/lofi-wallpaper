@@ -65,9 +65,24 @@
     };
   }
 
-  /* Three words is enough to name almost every station. Where two would collide -
-     two entries really are both "lofi hip hop radio", differing only in the part
-     after the emoji - the later one takes more words until it is unique.
+  /* The playlist's first entry is the channel's flagship stream, and its title -
+     "lofi hip hop radio" - is word for word the same as one further down. Left to
+     the formula both want "Hip Hop Radio", and the flagship, being first, would
+     take it and push the other to the clumsier "Lofi Hip Hop Radio".
+
+     So the flagship is named after the channel instead, and the formula name is
+     left to the entry that has nothing else to be called. The check is on the
+     title rather than the position alone: if the playlist is reordered, or that
+     stream is renamed, this stops applying rather than mislabelling whatever
+     happens to be first. */
+  const FLAGSHIP = 'Lofi Radio';
+
+  function flagshipName(rawTitle) {
+    return /lofi/i.test(rawTitle) && /radio/i.test(rawTitle) ? FLAGSHIP : null;
+  }
+
+  /* Three words names almost every other station. Where two would collide, the
+     later one takes more words until it is unique.
 
      Ties are settled by playlist order, so the same playlist always produces the
      same names and a station does not get renamed just because another was added
@@ -75,7 +90,15 @@
   function nameAll(entries) {
     const taken = new Set();
 
-    return entries.map(entry => {
+    return entries.map((entry, i) => {
+      if (i === 0) {
+        const flag = flagshipName(entry.rawTitle);
+        if (flag) {
+          taken.add(flag);
+          return flag;
+        }
+      }
+
       for (let words = 3; words <= 8; words++) {
         const title = shorten(entry.rawTitle, words);
         if (!taken.has(title)) {
