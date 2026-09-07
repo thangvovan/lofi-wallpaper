@@ -38,26 +38,10 @@
     return titleCase(parts.slice(-words).join(' '));
   }
 
-  /* The playlist gives no time-of-day information, so it is inferred from the
-     title for the "auto" station mode. Anything unmatched is left for the day
-     bucket, which is the safest default for background music. */
-  const MOOD_RULES = [
-    [/sleep|dream|ambient|night|dark/i, ['night']],
-    [/synth|synthwave|evening|christmas|halloween/i, ['evening']],
-    [/morning|sunrise|summer/i, ['morning']],
-    [/study|focus|work|piano|classical|jazz|pomodoro/i, ['day']]
-  ];
-
-  function moodFor(rawTitle) {
-    for (const [re, mood] of MOOD_RULES) if (re.test(rawTitle)) return mood;
-    return ['day'];
-  }
-
-  function station(videoId, rawTitle, title) {
+  function station(videoId, title) {
     return {
       videoId: videoId,
       title: title,
-      mood: moodFor(rawTitle),
       // Straight from Google's CDN, never through the audio server: it is faster
       // and it keeps artwork off the server's bandwidth bill entirely.
       thumb: 'https://i.ytimg.com/vi/' + videoId + '/maxresdefault.jpg',
@@ -169,18 +153,8 @@
     if (!entries.length) throw new Error('playlist returned no stations');
 
     const titles = nameAll(entries);
-    return entries.map((e, i) => station(e.videoId, e.rawTitle, titles[i]));
+    return entries.map((e, i) => station(e.videoId, titles[i]));
   }
-
-  /* Time-of-day buckets for the "auto" station mode. Lives here rather than with
-     the list itself, because it is the other half of the same guesswork: moodFor
-     labels a station, this decides which label the hour wants. */
-  window.MOOD_FOR_HOUR = function (h) {
-    if (h >= 5 && h < 10) return 'morning';
-    if (h >= 10 && h < 17) return 'day';
-    if (h >= 17 && h < 22) return 'evening';
-    return 'night';
-  };
 
   window.Playlist = { load: load };
 })();

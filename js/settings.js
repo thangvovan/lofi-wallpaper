@@ -2,8 +2,6 @@
    Every key here has a matching entry in project.json -> general.properties. */
 (function () {
   const defaults = {
-    stationMode: 'auto',     // 'auto' (by time of day) | 'shuffle' | 'fixed'
-    stationId  : '',
     volume     : 100,
     muted      : false,
     serverUrl  : 'http://127.0.0.1:8477',
@@ -80,7 +78,6 @@
   };
 
   const MAP = {
-    stationmode: 'stationMode', stationid: 'stationId',
     volume: 'volume', muted: 'muted', serverurl: 'serverUrl',
     bgsource: 'bgSource', bgvideo: 'bgVideo', bgimage: 'bgImage',
     bgfit: 'bgFit', bgfade: 'bgFade',

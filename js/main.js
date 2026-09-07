@@ -9,37 +9,13 @@
   let stations = [];
   let index = 0;
   let current = null;
-  let shuffleBag = [];
 
-  /* ---------- choosing a wallpaper ---------- */
-
-  function pickAuto() {
-    const mood = window.MOOD_FOR_HOUR(new Date().getHours());
-    const pool = stations.filter(s => (s.mood || []).includes(mood));
-    return (pool.length ? pool : stations)[0];
-  }
-
-  function pickShuffle() {
-    if (!shuffleBag.length) {
-      shuffleBag = stations.slice();
-      for (let i = shuffleBag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffleBag[i], shuffleBag[j]] = [shuffleBag[j], shuffleBag[i]];
-      }
-      if (current && shuffleBag[0].videoId === current.videoId && shuffleBag.length > 1) {
-        shuffleBag.push(shuffleBag.shift());
-      }
-    }
-    return shuffleBag.shift();
-  }
-
-  function resolveStation() {
-    const mode = S.get('stationMode');
-    if (mode === 'shuffle') return pickShuffle();
-    if (mode === 'fixed') {
-      return stations.find(s => s.videoId === S.get('stationId')) || stations[0];
-    }
-    return pickAuto();
+  /* Which station the wallpaper opens on: one draw from the list that was just
+     fetched, so it is a different one each time and never the same station on
+     every boot. Nothing steps on from here - picking is a start-up decision, not
+     a mode the wallpaper stays in. */
+  function randomStation() {
+    return stations[Math.floor(Math.random() * stations.length)];
   }
 
   /* ---------- switching ---------- */
@@ -56,25 +32,10 @@
     A.play(st);
   }
 
-  /* Setting mode and id is two writes, and each one fires onChange. Between them
-     the pair is inconsistent - mode "fixed" with the id not yet written resolves
-     to stations[0] - so the listener is muted while we write both, and the switch
-     happens once, here. */
-  let picking = false;
-
-  function pick(st) {
-    picking = true;
-    S.set('stationMode', 'fixed');
-    S.set('stationId', st.videoId);
-    picking = false;
-    switchTo(st);
-  }
-
   function step(dir) {
     if (!stations.length) return;
-    if (S.get('stationMode') === 'shuffle') return switchTo(pickShuffle());
     index = (index + dir + stations.length) % stations.length;
-    pick(stations[index]);
+    switchTo(stations[index]);
   }
 
   /* ---------- player availability ---------- */
@@ -108,10 +69,6 @@
     if (key === 'bgSource' || key === 'bgVideo' || key === 'bgImage' ||
         key === 'bgFit' || key === 'bgFade') {
       window.Background.apply(current);
-    }
-    if ((key === 'stationMode' || key === 'stationId') && !picking) {
-      const st = resolveStation();
-      if (st && st.videoId !== (current && current.videoId)) switchTo(st);
     }
     if (key === 'volume' || key === 'muted') A.applyVolume();
     if (key === 'clock24h') window.UI.tickClock();
@@ -161,18 +118,6 @@
     else if (e.key === 'm') { S.set('muted', !S.get('muted')); A.applyVolume(); }
   });
 
-  /* "Auto" means by time of day, so it has to re-check as the day moves on.
-     Once an hour is plenty and costs nothing while nothing changes. */
-  function watchClockBucket() {
-    let bucket = window.MOOD_FOR_HOUR(new Date().getHours());
-    setInterval(() => {
-      const now = window.MOOD_FOR_HOUR(new Date().getHours());
-      if (now === bucket) return;
-      bucket = now;
-      if (S.get('stationMode') === 'auto') switchTo(pickAuto());
-    }, 5 * 60 * 1000);
-  }
-
   /* The playlist is the only source of stations: nothing is stored between runs
      and nothing is baked in. That keeps the list correct when Lofi Girl restarts
      a stream under a fresh video id, at the cost of about half a second before
@@ -182,8 +127,7 @@
 
   function adopt(list) {
     stations = list;
-    shuffleBag = [];                 // built from the old list; ids may have gone
-    window.UI.renderStations(stations, current && current.videoId, pick);
+    window.UI.renderStations(stations, current && current.videoId, switchTo);
 
     // Keep playing whatever is playing. Only re-point at the fresh object, so a
     // renamed station or new artwork is picked up without interrupting audio.
@@ -194,7 +138,7 @@
       window.UI.markActive(same.videoId);
       window.UI.setName(same);
     } else {
-      switchTo(resolveStation());    // first run, or the station we were on is gone
+      switchTo(randomStation());     // first run, or the station we were on is gone
     }
   }
 
@@ -222,9 +166,8 @@
     S.applyVisuals();
     window.Background.apply(null);
     ensureHelper();                  // deliberately not awaited
-    window.UI.renderStations([], null, pick);
+    window.UI.renderStations([], null, switchTo);
     await loadStations();
-    watchClockBucket();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
