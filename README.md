@@ -1,194 +1,146 @@
-# Lofi Girl Wallpaper Radio
+# Lofi wallpaper
 
-Wallpaper Engine web wallpaper dùng artwork các kênh Lofi Girl làm nền, kèm đồng
-hồ và list kính ở góc trên bên phải. Bấm vào list là đổi **cả wallpaper lẫn
-nhạc**.
+A Wallpaper Engine web wallpaper that plays Lofi Girl's live radio stations, with
+the artwork, a clock and a station list.
 
-Không cần localhost, không tiến trình nền, không nhúng player.
-
-## Cài đặt
-
-Copy thư mục này vào
-`...\Steam\steamapps\common\wallpaper_engine\projects\myprojects\lofi-wallpaper`,
-mở Wallpaper Engine → wallpaper hiện trong tab *Installed* → Apply.
-
-Không cài gì thêm. Chỉ cần mạng.
-
-## Nhạc chạy kiểu gì mà không cần server
-
-Thẻ `<audio>` **không cần CORS** để phát tài nguyên cross-origin — phát không
-phải là fetch. Nên URL luồng radio đưa thẳng vào `src`, hết. Đó là toàn bộ cơ chế.
-
-Điều duy nhất quyết định một luồng có dùng được hay không là **server trả lời
-Range request thế nào**, vì media element luôn gửi Range ở request đầu tiên:
-
-| Đài | Không Range | Có Range | Kết quả trong browser |
-|---|---|---|---|
-| laut.fm | `ff fb …` MP3 | giống hệt | phát được |
-| Radio Paradise | `ff f1 …` AAC | giống hệt | phát được |
-| SomaFM | `ff fb …` MP3 | `46 46 46 46` = ASCII "FFFF" | `MEDIA_ERR_SRC_NOT_SUPPORTED` |
-
-SomaFM trả rác cho request có Range, nên trình duyệt báo lỗi format dù luồng
-hoàn toàn bình thường khi tải bằng `curl` không Range. Mọi URL trong
-`js/stations.js` đều đã được kiểm cả hai cách, và kiểm lại lần nữa bằng
-`<audio>` thật trong Chromium.
-
-Mỗi wallpaper Lofi Girl ghép với một luồng hợp gu, chọn theo chính tên kênh:
-
-| Luồng | Wallpaper |
-|---|---|
-| laut.fm lofi | Lofi Radio, Asian Lofi Radio |
-| laut.fm jazz | Jazz Lofi Radio, Bossa Lofi Radio, Relaxing Jazz Music |
-| laut.fm instrumental | Relaxing Piano Radio, Classical Music Radio, Study With Me |
-| laut.fm meditation | Hip Hop Radio, Sleep Ambient Music, Dark Ambient Radio |
-| laut.fm nature | Sad Lofi Radio, Gentle Rain Ambience, Fireplace Ambience |
-| laut.fm relax | Chill Guitar Radio, Medieval Lofi Radio, Christmas Lofi Music, Halloween Lofi Radio |
-| laut.fm ambient | Synthwave Radio |
-
-**Đây không phải audio của Lofi Girl.** Nhạc của họ chỉ lấy được qua một trong
-hai đường đã bị loại — nhúng IFrame player, hoặc helper chạy nền. Xem
-[Vì sao không lấy được nhạc Lofi Girl](#vì-sao-không-lấy-được-nhạc-lofi-girl).
-Hình nền thì vẫn là artwork Lofi Girl.
-
-## Nhạc chỉ chạy khi thấy wallpaper
-
-Wallpaper Engine gọi `setPaused(true)` khi nó tạm dừng wallpaper. Đó là tín hiệu
-chính thức duy nhất — chính tác giả WE nói rõ **không thể** phát hiện focus từ
-bên trong trang, nên không có cách nào khôn hơn:
-
-```js
-window.wallpaperPropertyListener.setPaused = isPaused => { ... };
+```
+css/     the wallpaper's styling
+js/      the wallpaper itself - clock, station list, artwork, audio
+java/    the server that turns a YouTube live radio into playable audio
 ```
 
-**Nhưng khi nào nó bắn là do cài đặt của Wallpaper Engine, không phải do trang
-quyết định.** Vào **Settings → Performance**:
+The wallpaper cannot play a YouTube live stream on its own. Everything below is a
+consequence of that, and each claim was measured rather than assumed.
 
-| Mục | Đặt thành |
-|---|---|
-| Other applications maximized | `Pause` (hoặc `Mute`) |
-| Other applications fullscreen | `Pause` |
+## Why there is a server
 
-Để `Keep running` thì WE không bao giờ tạm dừng gì cả, nên nhạc cứ chạy — đúng
-như tuỳ chọn đó yêu cầu. Nếu nhạc vẫn chạy khi có app đè lên, kiểm hai mục này
-trước.
+Four things had to be true for the wallpaper to do this alone. Two turned out not
+to be obstacles at all; two are.
 
-`js/visibility.js` bổ sung `setPaused` vào listener mà `settings.js` đã tạo, chứ
-không gán đè — nếu gán đè thì script chạy sau sẽ âm thầm xoá mất phần kia.
+| | Measured | Blocking? |
+|---|---|---|
+| CORS on YouTube's API | `Content-Type: text/plain` skips the preflight, and the response carries `Access-Control-Allow-Origin: null` | no |
+| A PO token is required | `PO Token Providers: none` in yt-dlp's own log. The earlier `FAILED_PRECONDITION` was a stale `clientVersion`; `21.02.35` answers `OK` for every station | no |
+| CORS on googlevideo | Segments answer `206` with **no** `Access-Control-Allow-Origin`, so `fetch()` cannot read them - which also rules out ffmpeg.wasm, since it only works on bytes JavaScript already holds | **yes** |
+| Codecs in Wallpaper Engine's CEF | `canPlayType` answers `""` for AAC and H.264, and a live radio serves only `avc1 + mp4a`. Opus in WebM answers `"probably"` | **yes** |
 
-## Màn hình dọc
+A media element is exempt from CORS, but it cannot play a live HLS playlist, and
+even if it could there is no AAC decoder behind it. So the server resolves the
+stream, downloads it, throws the video away and transcodes the audio to Opus; the
+wallpaper plays the result with a plain `<audio>` element.
 
-Fit luôn là **cover**. Trên màn dọc, ảnh 16:9 bị cắt mạnh và điều đó là không
-tránh được — đã đo cụ thể:
+That split is also why Wallpaper Engine's own volume and pause work: the audio
+belongs to the page, not to a separate process.
 
-| Biến thể | Kích thước | Tỉ lệ | Nội dung |
-|---|---|---|---|
-| 4 ảnh trong `urls.py` | 168×94 → 336×188 | **đều 1.78** | cùng một khung |
-| `mqdefault` | 320×180 | 1.778 | full-bleed |
-| `maxresdefault` / `hq720` | 1280×720 | 1.778 | full-bleed |
-| `default` / `hqdefault` / `sddefault` | 4:3 | 1.333 | **letterbox — thêm viền đen, không thêm cảnh** |
+## Running the server
 
-Với `cover`, phần bị cắt do **tỉ lệ khung** quyết định chứ không phải kích thước:
-mọi ảnh 1.78 sẽ cắt y hệt nhau dù to hay nhỏ. Mấy bản 4:3 tuy "cao" hơn nhưng chỉ
-là cùng khung hình đó cộng viền đen, nên dùng chúng chỉ tổ hiện viền đen.
-
-Vì vậy wallpaper luôn dùng `maxresdefault` — bản lớn nhất, để khi `cover` phóng
-to trên màn dọc thì ảnh còn nét (1280 → hơn 3400px chiều ngang).
-
-Điều duy nhất làm được cho màn dọc là nhường chỗ: list thu hẹp và thấp lại để
-không nuốt mất phần cảnh còn thấy được.
-
-## Nguồn dữ liệu
-
-Danh sách lấy từ dump yt-dlp trong `Downloads/lofi radio/urls.py` — 19 kênh kèm
-id, link watch và thumbnail. Mỗi kênh lưu trong `js/stations.js`:
-
-| Trường | Dùng để |
-|---|---|
-| `videoId`, `url` | định danh, link gốc |
-| `title` | tên rút gọn hiện trên list |
-| `thumb` | **wallpaper** (bản 1280×720) |
-| `thumbFallback` | thumbnail gốc trong dump, dự phòng |
-| `stream`, `streamName` | **luồng nhạc** ghép với wallpaper đó |
-| `mood` | phân nhóm cho chế độ auto theo giờ |
-
-Thumbnail trong dump cao nhất chỉ 336×188 — quá nhỏ để phủ màn hình — nên dùng
-bản `maxresdefault` (1280×720) của **cùng ảnh đó**, giữ URL trong dump làm dự
-phòng. Đã kiểm: cả 19 kênh đều có bản maxres.
-
-Tên rút gọn theo đúng quy tắc của app mobile
-(`lofi-audio/lib/services/youtube_service.dart::_filterChannelTitle`): cắt từ
-emoji đầu tiên, lấy 3 từ cuối, title case, trùng thì nới ra 4 từ. Ví dụ
-`lofi hip hop radio 📚 beats to relax/study to` → `Lofi Radio`.
-
-Cập nhật lại danh sách:
+Locally:
 
 ```bash
-python tools/import_stations.py --verify
+cd java
+mvn package -DskipTests
+java -jar target/lofi-server.jar
 ```
 
-`--verify` đối chiếu id với playlist hiện tại và thay id đã chết (lúc import
-`EWrX250Zhko` đã chết, được thay bằng `rFZHOHl-L8A`). Với wallpaper thì id chết
-vẫn còn artwork dùng được, nên `--verify` là tuỳ chọn.
+Or in Docker, which brings its own ffmpeg:
 
-## Tuỳ chọn (Properties)
+```bash
+docker compose up -d --build      # in java/
+```
 
-| Nhóm | Tuỳ chọn |
+Then set **Audio server URL** in the wallpaper's properties. It defaults to
+`http://127.0.0.1:8477`; point it at your server to move the work off the machine
+running the wallpaper.
+
+| Endpoint | |
 |---|---|
-| Wallpaper | Pick mode (`Auto theo giờ` / `Shuffle` / `Chọn tay`), Wallpaper, Source (`Lofi Girl artwork` / `Built-in gradient` / `Local video` / `Local image`), file, Fit (Cover / Contain / Stretch), Crossfade |
-| Audio | Volume, Mute |
-| Look | Dim, Blur, Saturation, Vignette, Film grain |
-| Overlay | List + độ trong của kính, Clock (12/24h), Wallpaper name, Overlay opacity, Accent colour |
+| `GET /stream?id=<videoId>&q=<kbps>` | the audio, as WebM/Opus |
+| `GET /api/health` | ffmpeg version and the live stations |
+| `GET /api/resolve?id=<videoId>` | resolving on its own, for diagnosis |
 
-**Auto mode** chọn theo giờ và tự đổi khi sang khung giờ mới: sáng →
-piano/classical/study, ngày → lofi/bossa, tối → jazz/synthwave, đêm →
-sleep/ambient/rain.
+`/api/resolve` is the first thing to run against a new host: it is the call that
+fails when an IP sits in a range YouTube treats as a datacenter, and it costs no
+bandwidth worth counting.
 
-Phím tắt (khi Wallpaper Engine truyền input): `↑`/`↓` đổi wallpaper, `m` mute.
+## Deploying
 
-## Vì sao không lấy được nhạc Lofi Girl
+`.github/workflows/deploy.yml` rsyncs `java/` to a VM over SSH and rebuilds the
+container there. Set `SSH_HOST`, `SSH_USER` and `SSH_KEY` as repository secrets.
 
-Wallpaper là JS thuần trong CEF. Đã test cụ thể:
+Plain HTTP is the default. The wallpaper is a `file://` page rather than an
+`https://` one, so it is not subject to mixed-content blocking and can pull audio
+from an `http://` origin. If you own a domain and would rather not stream in the
+clear, `docker compose --profile tls up -d` puts Caddy in front and it obtains its
+own certificate.
 
-| Thử | Kết quả |
+### Bandwidth
+
+One listener, measured at steady state on a warm station:
+
+| `?q=` | Audio | HTTP requests | Total | 16 h/day, 31-day month |
+|---|---|---|---|---|
+| 32 (default) | 16.1 MB/h | 4.0 MB/h | 20.1 MB/h | **10.0 GB** |
+| 48 | 19.4 | 4.0 | 23.4 | 11.6 GB |
+| 96 | ~37 | 4.0 | ~41 | 20.3 GB |
+
+The request line is not noise: ffmpeg issues about 2,340 requests an hour, each
+carrying a googlevideo URL around 1,241 characters long. The ~93 GB/month of
+segments coming *down* is inbound, which hosts generally do not bill.
+
+That rules out several free tiers. Render's Hobby workspace includes 5 GB of
+outbound a month, which is about 8 hours of listening a day. Oracle Cloud's
+Always Free tier includes 10 TB, which this does not come close to.
+
+## How the server works
+
+One ffmpeg per station, not per listener. On a small host the CPU limit binds long
+before bandwidth does, and sharing doubles as the latency fix: joining a station
+that is already running costs about one cluster (~1 s) against the ~3.8 s a cold
+start takes - 0.65 s to resolve, then ~3.1 s before ffmpeg emits anything.
+
+Sharing a live WebM stream means new listeners cannot simply be handed the current
+bytes: they need the EBML header and Tracks first. `StationStream` keeps that init
+segment and splices each new listener in at the next cluster boundary.
+
+A station is stopped 15 seconds after its last listener leaves. The delay is not
+politeness - starting one makes ffmpeg pull the whole HLS window at once, costing
+roughly twice the steady rate for the first twenty seconds, so riding out a brief
+reconnect is cheaper than paying that again.
+
+## The station list
+
+`js/playlist.js` reads Lofi Girl's playlist in the page, at runtime, and nothing
+is baked into the wallpaper. That keeps the list correct when a stream restarts
+under a fresh video id, which happens often enough that a saved list goes stale.
+
+It works because the same measurement that unblocked resolving applies here:
+InnerTube does not need `Content-Type: application/json`. Sent as `text/plain`
+the request is "simple", no preflight is sent, and the response carries
+`Access-Control-Allow-Origin: null` - the origin a `file://` page has. None of it
+touches the audio server.
+
+Nothing is stored between runs, so the wallpaper waits about half a second for
+the list on every start and has nothing to fall back on if the fetch fails -
+`main.js` retries every 15 seconds rather than leaving an empty panel.
+
+## Input inside Wallpaper Engine
+
+Probed in the real surface, because it is not what a browser would suggest:
+
+| Event | Delivered to the page |
 |---|---|
-| `youtubei/v1/player` client `WEB` | `UNPLAYABLE` |
-| client `ANDROID_VR` | `LOGIN_REQUIRED` (đòi PO token) |
-| client `IOS` / `TVHTML5` / `MWEB` / `WEB_EMBEDDED` | `UNPLAYABLE` / `ERROR` |
-| Gọi `/player` hay `/browse` bằng `fetch()` | CORS preflight → `OPTIONS` trả **403 với mọi origin** |
-| `<audio src>` trỏ thẳng googlevideo | `403` — range mở bị từ chối, chỉ range có giới hạn mới `206` |
-| Live stream | không có format audio-only, mọi variant đều muxed HLS mà Chromium không phát natively |
+| `mousemove`, `pointermove` | yes |
+| `mousedown`, `click` | yes |
+| **`wheel`, `mousewheel`** | **no** |
 
-Hai đường từng chạy được, cả hai đều nằm trong git history:
+So the station list cannot be scrolled with the wheel, whatever the CSS says -
+the event never arrives. It scrolls by hovering its top or bottom edge instead,
+faster the nearer the pointer gets to the edge, and fades at the edges show which
+way there is more to go. The wheel handler is kept only because the same page
+opens in an ordinary browser during development.
 
-- **Nhúng YouTube IFrame player** — đúng ToS, nhưng vẫn decode video.
-- **Helper chạy nền** (Python + yt-dlp + ffmpeg transmux, ~49 kbps AAC) — cần
-  giữ một tiến trình chạy cùng Wallpaper Engine.
-
-## Cấu trúc
-
-```
-project.json            # manifest + user properties của Wallpaper Engine
-index.html
-css/style.css
-js/stations.js          # 19 kênh + luồng ghép, sinh từ dump trong Downloads
-js/settings.js          # defaults + wallpaperPropertyListener
-js/background.js        # artwork crossfade / gradient / video / ảnh local
-js/audio.js             # <audio> trỏ thẳng luồng radio, tự reconnect
-js/visibility.js        # cầu nối setPaused của Wallpaper Engine
-js/ui.js                # đồng hồ, nhãn, list kính
-js/main.js              # boot, chọn wallpaper, auto theo giờ
-tools/import_stations.py
-```
-
-## Ghi chú
-
-- **Không có `preview.jpg`**, nên Wallpaper Engine hiện ô trống ở gallery. Muốn
-  có lại thì bỏ ảnh tên `preview.jpg` vào thư mục gốc và thêm
-  `"preview": "preview.jpg"` vào `project.json`.
-- List chỉ bấm được khi Wallpaper Engine cho phép chuột tương tác với wallpaper.
-  Không có chuột thì đổi bằng Properties.
-- Nếu trình duyệt chặn autoplay, nhãn hiện "click to start audio" và click đầu
-  tiên sẽ bật nhạc. Wallpaper Engine thì cho autoplay nên thường không gặp.
-- Luồng radio rớt sẽ tự kết nối lại, giãn dần tối đa 8 lần.
-- Trên màn dọc, list thu hẹp và thấp lại để không nuốt mất ảnh.
-- Artwork thuộc về Lofi Girl; nhạc thuộc về các đài laut.fm tương ứng.
+Pausing works through `wallpaperPropertyListener.setPaused`, which Wallpaper
+Engine calls according to **its own** Performance settings - "Other application
+maximized" and so on, per monitor. If the wallpaper keeps playing behind other
+windows, that is the engine's setting rather than the page ignoring anything:
+calling `setPaused` by hand was verified to stop and restart the audio correctly.

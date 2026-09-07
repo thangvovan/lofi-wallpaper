@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lofi Girl Wallpaper</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=22">
 </head>
 <body>
   <!-- Background: two layers so station artwork can crossfade -->
@@ -12,6 +12,7 @@
     <div class="bg-layer" id="bg-a"><div class="bg-blur"></div><div class="bg-main"></div></div>
     <div class="bg-layer" id="bg-b"><div class="bg-blur"></div><div class="bg-main"></div></div>
   </div>
+
   <div id="grade"></div>
   <div id="vignette"></div>
   <div id="grain"></div>
@@ -38,12 +39,16 @@
     </div>
   </div>
 
-  <script src="js/stations.js"></script>
-  <script src="js/settings.js"></script>
-  <script src="js/background.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/visibility.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/main.js"></script>
+  <!-- Only appears when audio fails, so the reason is readable off the wallpaper
+       itself instead of needing Wallpaper Engine's CEF devtools port. -->
+  <div id="notice" class="hidden"><span id="notice-text"></span></div>
+
+  <script src="js/playlist.js?v=22"></script>
+  <script src="js/settings.js?v=22"></script>
+  <script src="js/background.js?v=22"></script>
+  <script src="js/audio.js?v=22"></script>
+  <script src="js/visibility.js?v=22"></script>
+  <script src="js/ui.js?v=22"></script>
+  <script src="js/main.js?v=22"></script>
 </body>
 </html>

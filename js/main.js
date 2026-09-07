@@ -1,8 +1,8 @@
 /* Boot sequence, wallpaper switching and the radio that goes with it.
 
    Picking an entry changes two things: the artwork behind everything, and the
-   stream paired with it in js/stations.js. Both are plain URLs the browser loads
-   on its own - no local server, no embedded player. */
+   station the audio server is asked for. The list itself is read from YouTube at
+   runtime by js/playlist.js rather than baked into the wallpaper. */
 (function () {
   const S = window.Settings;
   const A = window.AudioEngine;
@@ -77,6 +77,31 @@
     pick(stations[index]);
   }
 
+  /* ---------- player availability ---------- */
+
+  let helperPoll = null;
+
+  async function ensureHelper() {
+    if (await A.helperUp()) {
+      clearInterval(helperPoll);
+      helperPoll = null;
+      window.UI.setNotice('');
+      return true;
+    }
+    window.UI.setNotice('Cannot reach the audio server at ' + S.get('serverUrl') +
+                        ' - check it is running, and that Server URL is set correctly.');
+    if (!helperPoll) {
+      helperPoll = setInterval(async () => {
+        if (!await A.helperUp()) return;
+        clearInterval(helperPoll);
+        helperPoll = null;
+        window.UI.setNotice('');
+        if (current) switchTo(current);
+      }, 5000);
+    }
+    return false;
+  }
+
   /* ---------- wiring ---------- */
 
   S.onChange(key => {
@@ -90,21 +115,33 @@
     }
     if (key === 'volume' || key === 'muted') A.applyVolume();
     if (key === 'clock24h') window.UI.tickClock();
+    if (key === 'serverUrl') ensureHelper();
   });
 
-  A.on('playing', st => { window.UI.setPlayingState(true); window.UI.setName(st); });
-  // Loaded but deliberately silent: the wallpaper is covered right now.
-  A.on('staged',  st => { window.UI.setPlayingState(false); window.UI.setName(st); });
+  A.on('playing', st => {
+    window.UI.setPlayingState(true);
+    window.UI.setName(st);
+    window.UI.setNotice('');
+  });
+
   A.on('stalled', st => window.UI.setName(st, 'buffering…'));
-  A.on('blocked', st => window.UI.setName(st, 'click to start audio'));
+  /* Coming back from being covered always costs a reconnect, so the first couple
+     of attempts are ordinary life rather than news. Only a run of failures means
+     something is actually wrong and is worth a notice. */
   A.on('reconnecting', info => {
     window.UI.setPlayingState(false);
-    window.UI.setName(info.station, 'reconnecting… (' + info.attempt + ')');
+    window.UI.setName(info.station, 'reconnecting…');
+    if (info.attempt >= 3) {
+      window.UI.setNotice('Cannot reach the audio server (' + info.why +
+                          ') - retry ' + info.attempt);
+    }
   });
   A.on('error', err => {
     console.warn('[lofi] audio:', err.message);
     window.UI.setPlayingState(false);
     window.UI.setName(err.station, 'audio unavailable');
+    if (err.helper) ensureHelper();
+    else window.UI.setNotice(err.message);
   });
 
   /* Only make noise while the wallpaper is actually on screen. Visibility comes
@@ -136,11 +173,57 @@
     }, 5 * 60 * 1000);
   }
 
-  function start() {
-    stations = window.STATIONS.slice();
+  /* The playlist is the only source of stations: nothing is stored between runs
+     and nothing is baked in. That keeps the list correct when Lofi Girl restarts
+     a stream under a fresh video id, at the cost of about half a second before
+     the first sound - and it means a failed fetch leaves the wallpaper with
+     nothing to play, so this retries rather than settling for an empty list. */
+  let listRetry = null;
+
+  function adopt(list) {
+    stations = list;
+    shuffleBag = [];                 // built from the old list; ids may have gone
+    window.UI.renderStations(stations, current && current.videoId, pick);
+
+    // Keep playing whatever is playing. Only re-point at the fresh object, so a
+    // renamed station or new artwork is picked up without interrupting audio.
+    const same = current && stations.find(s => s.videoId === current.videoId);
+    if (same) {
+      current = same;
+      index = stations.indexOf(same);
+      window.UI.markActive(same.videoId);
+      window.UI.setName(same);
+    } else {
+      switchTo(resolveStation());    // first run, or the station we were on is gone
+    }
+  }
+
+  async function loadStations() {
+    let live;
+    try {
+      live = await window.Playlist.load();
+    } catch (e) {
+      console.warn('[lofi] playlist:', e.message);
+      if (!stations.length) {
+        window.UI.setNotice('Cannot load the station list from YouTube - retrying');
+      }
+      if (!listRetry) listRetry = setInterval(loadStations, 15000);
+      return;
+    }
+    if (!live.length) return;
+
+    clearInterval(listRetry);
+    listRetry = null;
+    if (!stations.length) window.UI.setNotice('');
+    adopt(live);
+  }
+
+  async function start() {
     S.applyVisuals();
-    window.UI.renderStations(stations, null, pick);
-    switchTo(resolveStation());
+    window.Background.apply(null);
+    ensureHelper();                  // deliberately not awaited
+    window.UI.renderStations([], null, pick);
+    await loadStations();
     watchClockBucket();
   }
 

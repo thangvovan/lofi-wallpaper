@@ -11,8 +11,19 @@
    which is exactly what that option asks for. Set those to Pause (or Mute) for
    the wallpaper to go quiet behind other windows. */
 (function () {
+  /* Two independent signals, kept apart on purpose.
+
+     `docHidden` is never seeded from document.hidden and is only ever written by
+     a real visibilitychange event. Some hosts report a wallpaper surface as
+     hidden from the very first frame and never change it; folding that into the
+     result would both silence the wallpaper at boot and make setPaused(false)
+     unable to lift it, because the stuck value would win every time. */
+  let enginePaused = false;
+  let docHidden = false;
   let hidden = false;
   const listeners = [];
+
+  function recompute() { set(enginePaused || docHidden); }
 
   function set(next) {
     if (next === hidden) return;
@@ -26,13 +37,14 @@
     window.wallpaperPropertyListener || {};
 
   listener.setPaused = function (isPaused) {
-    set(!!isPaused || document.hidden);
+    enginePaused = !!isPaused;
+    recompute();
   };
 
   // Outside Wallpaper Engine - a browser tab, a preview - this is all there is.
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) set(true);
-    else set(false);
+    docHidden = !!document.hidden;
+    recompute();
   });
 
   window.Visibility = {

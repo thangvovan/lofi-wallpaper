@@ -4,8 +4,9 @@
   const defaults = {
     stationMode: 'auto',     // 'auto' (by time of day) | 'shuffle' | 'fixed'
     stationId  : '',
-    volume     : 55,
+    volume     : 100,
     muted      : false,
+    serverUrl  : 'http://127.0.0.1:8477',
 
     bgSource   : 'thumb',    // 'thumb' | 'gradient' | 'video' | 'image'
     bgVideo    : '',
@@ -80,7 +81,7 @@
 
   const MAP = {
     stationmode: 'stationMode', stationid: 'stationId',
-    volume: 'volume', muted: 'muted',
+    volume: 'volume', muted: 'muted', serverurl: 'serverUrl',
     bgsource: 'bgSource', bgvideo: 'bgVideo', bgimage: 'bgImage',
     bgfit: 'bgFit', bgfade: 'bgFade',
     dim: 'dim', blur: 'blur', saturation: 'saturation', vignette: 'vignette',

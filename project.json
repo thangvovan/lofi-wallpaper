@@ -297,7 +297,7 @@
         "order": 11,
         "text": "Volume",
         "type": "slider",
-        "value": 55,
+        "value": 100,
         "min": 0,
         "max": 100,
         "step": 1
@@ -307,6 +307,12 @@
         "text": "Mute",
         "type": "bool",
         "value": false
+      },
+      "serverurl": {
+        "order": 13,
+        "text": "Audio server URL",
+        "type": "textinput",
+        "value": "http://127.0.0.1:8477"
       }
     },
     "supportsaudioprocessing": false
@@ -316,7 +322,7 @@
   ],
   "title": "Lofi Girl Wallpaper Radio",
   "type": "web",
-  "version": 7,
+  "version": 12,
   "visibility": "private",
   "workshopid": ""
 }
