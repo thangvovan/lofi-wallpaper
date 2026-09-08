@@ -105,7 +105,14 @@
      from the frame clock, because Wallpaper Engine stops rendering a covered
      wallpaper without telling the page anything. */
   window.Visibility.onChange(hidden => {
-    if (hidden) A.pause(); else A.resume();
+    if (hidden) {
+      A.pause();
+    } else {
+      A.resume();
+      // Coming back may mean coming back from a machine sleep, where the artwork
+      // is still set but no longer drawn. Nothing else redraws it.
+      window.Background.repaint();
+    }
     window.Background.setPaused(hidden);
     // The meter has to follow, or it keeps bouncing over silence.
     window.UI.setPlayingState(!hidden && A.playing);

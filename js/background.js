@@ -20,6 +20,7 @@
   let front = 0;
   let mediaEl = null;
   let lastUrl = '';
+  let lastStation = null;   // what apply() last showed, so repaint() can redo it
   let token = 0;
 
   const BACKSLASH = String.fromCharCode(92);
@@ -70,6 +71,21 @@
     lastUrl = '';
   }
 
+  /* Redraws whatever is currently showing.
+
+     Sleeping the machine can bring Chromium back having lost the GPU textures
+     behind the layers. The element is still there and its background-image is
+     still set, so nothing in the page looks wrong - but the layer paints nothing,
+     and since the gradient is dropped once artwork is up, what is left on screen
+     is #bg's own near-black colour. That is the black wallpaper after waking.
+
+     Re-applying is enough. Clearing lastUrl stops showImageUrl short-circuiting
+     on "same url", so the image is decoded and painted into a fresh layer. */
+  function repaint() {
+    lastUrl = '';
+    apply(lastStation);
+  }
+
   function showGradient() {
     clearMedia();
     clearLayers();
@@ -84,11 +100,25 @@
   function showImageUrl(url, alt) {
     if (!url || url === lastUrl) return;
     clearMedia();
-    stage().classList.remove('gradient');
 
     const mine = ++token;
     const probe = new Image();
+
+    /* A hanging request fires neither handler - which is what happens for a
+       while after the machine wakes, before the network is up. Show the gradient
+       so the wallpaper is never a blank near-black screen, and leave the probe
+       running: if it completes later, onload still paints over it.
+
+       Cancelled as soon as this attempt resolves. Leaving it armed was what
+       broke switching: a station without a maxresdefault falls back to the
+       smaller thumbnail, and the stale timer then wiped the artwork that
+       fallback had just painted. */
+    const timer = setTimeout(() => {
+      if (mine === token) showGradient();
+    }, 8000);
+
     probe.onload = () => {
+      clearTimeout(timer);
       if (mine !== token) return;              // a newer station won the race
       const next = layers()[1 - front];
       const css = 'url("' + url + '")';
@@ -101,14 +131,22 @@
       layers()[front].classList.remove('on');
       front = 1 - front;
       lastUrl = url;
+      /* Only now. Dropping the gradient before the image was painted left the
+         bare #bg colour showing, which is almost black - exactly what the screen
+         looked like after waking the machine. */
+      stage().classList.remove('gradient');
     };
+
     probe.onerror = () => {
+      clearTimeout(timer);
       if (mine !== token) return;
-      // maxresdefault is missing for the odd station; the dump's smaller
-      // thumbnail is the same image and always exists.
-      if (alt && alt !== url) { token--; showImageUrl(alt, null); }
+      // maxresdefault is missing for plenty of stations; the smaller thumbnail
+      // is the same image and always exists. The retry takes the next token, so
+      // this attempt's handlers stop mattering on their own.
+      if (alt && alt !== url) showImageUrl(alt, null);
       else showGradient();
     };
+
     probe.src = url;
   }
 
@@ -117,9 +155,13 @@
     if (!url) return showGradient();
     clearMedia();
     clearLayers();
-    stage().classList.remove('gradient');
     const el = document.createElement(tag);
     el.src = url;
+    // Same rule as the artwork above: the gradient stays until there is
+    // something to replace it with, or a file that will not load leaves the
+    // wallpaper showing the bare near-black background colour.
+    el.addEventListener(tag === 'video' ? 'loadeddata' : 'load',
+                        () => stage().classList.remove('gradient'), { once: true });
     el.style.objectFit = window.Settings.get('bgFit');
     if (tag === 'video') {
       el.loop = true;
@@ -138,6 +180,7 @@
 
   /* Called on boot, on any background setting change, and on every switch. */
   function apply(station) {
+    lastStation = station;
     const s = window.Settings.all;
     if (s.bgSource === 'video') return showLocal('video', s.bgVideo);
     if (s.bgSource === 'image') return showLocal('img', s.bgImage);
@@ -151,5 +194,5 @@
     if (paused) mediaEl.pause(); else mediaEl.play().catch(() => {});
   }
 
-  window.Background = { apply, setPaused, refit, toFileUrl };
+  window.Background = { apply, repaint, setPaused, refit, toFileUrl };
 })();

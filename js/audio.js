@@ -117,6 +117,44 @@
   // rather than sitting in silence.
   audio.addEventListener('ended', () => { live = false; scheduleRetry('ended'); });
 
+  /* Events alone are not enough to keep this playing.
+
+     A wallpaper gets frozen and thawed - Wallpaper Engine pausing it, the machine
+     sleeping - and a stream that died while the page was frozen usually produces
+     no error event at all once it comes back. Nothing would ever retry, and the
+     wallpaper would sit silent with the element looking perfectly healthy. That
+     is exactly what "no sound after waking the machine" was.
+
+     So the clock is the source of truth rather than the events: if currentTime
+     has not moved across two checks while we believe we are playing, the stream
+     is gone whatever the element says. Two checks, not one, so a slow start is
+     not mistaken for a dead stream. */
+  let lastTime = -1;
+  let frozen = 0;
+
+  setInterval(() => {
+    if (!station) return;
+    if (window.Visibility && window.Visibility.hidden) return;
+    if (retryTimer) return;                      // a retry is already on its way
+
+    const now = audio.currentTime;
+    frozen = (now === lastTime) ? frozen + 1 : 0;
+    lastTime = now;
+
+    if (audio.paused || frozen >= 2) {
+      frozen = 0;
+      attach();
+    }
+  }, 8000);
+
+  /* Close the stream before the page goes away.
+
+     Wallpaper Engine tears a wallpaper down without warning - on "stop", on a
+     switch, on sleep - and an open streaming response left dangling has to be
+     noticed by the server's timeout instead of ending cleanly. pagehide is the
+     event that still fires in that path; beforeunload does not always. */
+  window.addEventListener('pagehide', detach);
+
   window.AudioEngine = {
     play(next) {
       if (!next) return false;

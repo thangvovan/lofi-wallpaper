@@ -47,6 +47,32 @@
     recompute();
   });
 
+  /* setPaused(true) arrives; setPaused(false) does not always follow.
+
+     Measured here: `wallpaper64.exe -control pause` pauses the wallpaper and the
+     page is told, but `-control resume` brings it back without ever saying so. A
+     page that trusts the callback alone therefore stays "hidden" for good - which
+     is why the wallpaper came back after a sleep with no sound and nothing
+     retrying, since every recovery path was gated on that flag.
+
+     Frames are the honest signal. Wallpaper Engine does not draw a paused
+     wallpaper, so requestAnimationFrame stops firing; if frames are arriving
+     steadily while we still believe we are paused, we are not paused any more,
+     whatever we were last told. */
+  let frames = 0;
+  (function count() { frames++; requestAnimationFrame(count); })();
+
+  setInterval(() => {
+    const drawn = frames;
+    frames = 0;
+    // Two seconds of real rendering. A handful of stray frames during teardown
+    // must not be read as the wallpaper being back on screen.
+    if (enginePaused && drawn > 20) {
+      enginePaused = false;
+      recompute();
+    }
+  }, 2000);
+
   window.Visibility = {
     get hidden() { return hidden; },
     onChange(fn) { listeners.push(fn); }
