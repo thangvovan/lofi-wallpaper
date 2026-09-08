@@ -32,6 +32,41 @@ wallpaper plays the result with a plain `<audio>` element.
 That split is also why Wallpaper Engine's own volume and pause work: the audio
 belongs to the page, not to a separate process.
 
+## Installing the wallpaper
+
+```bash
+java -jar java/target/lofi-server.jar --install
+```
+
+Opening a wallpaper by file path is not the same as having it installed. Wallpaper
+Engine scans `projects/myprojects` at startup, and only what it finds there
+becomes a library entry the engine will restore. A wallpaper opened by path shows
+up as the bare filename with a blank icon, and is not put back when the display
+goes away and returns - which is what a machine waking from sleep looks like from
+the engine's side. The desktop then falls back to the Windows wallpaper.
+
+The installer finds Steam through the registry and reads `libraryfolders.vdf`, so
+it locates Wallpaper Engine on any machine rather than guessing drive letters.
+
+It copies the wallpaper in, because that is what someone who downloaded this
+needs: install once, delete the download, keep the wallpaper. Only `index.html`,
+`project.json`, `css/` and `js/` go across - about 54 KiB. The server, the git
+history and the CI config are not part of the wallpaper, and Wallpaper Engine
+scans everything it is given.
+
+```bash
+java -jar java/target/lofi-server.jar --install --link    # while working on it
+```
+
+`--link` makes a junction instead, so the installed wallpaper *is* the working
+tree and an edit needs no re-install. It ties the wallpaper to that folder, so it
+is for development rather than for installing. Junctions need no administrator
+rights.
+
+Restart Wallpaper Engine afterwards, then pick **Lofi Girl Wallpaper Radio** from
+Installed. `--uninstall` removes whichever of the two is there - and knows the
+difference, since deleting a junction's contents would delete the working tree.
+
 ## Running the server
 
 Locally:

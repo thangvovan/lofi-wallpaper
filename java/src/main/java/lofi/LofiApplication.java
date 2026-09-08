@@ -30,6 +30,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableConfigurationProperties(LofiProperties.class)
 public class LofiApplication {
     public static void main(String[] args) {
+        // Registering the wallpaper is a one-off chore, not a server, so it runs
+        // and exits instead of dragging Spring up behind it.
+        boolean link = java.util.Arrays.asList(args).contains("--link");
+        for (String arg : args) {
+            if (arg.equals("--install"))   System.exit(Installer.run(false, link));
+            if (arg.equals("--uninstall")) System.exit(Installer.run(true, false));
+        }
         SpringApplication.run(LofiApplication.class, args);
     }
 }
