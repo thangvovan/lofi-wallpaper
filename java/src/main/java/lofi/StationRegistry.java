@@ -56,6 +56,7 @@ public class StationRegistry {
                 StationStream stream = pending.join();
                 if (stream.alive()) return stream;
                 streams.remove(key, pending);
+                resolver.evict(videoId);        // the URL it started from is suspect now
             } catch (CompletionException e) {
                 streams.remove(key, pending);
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
@@ -88,9 +89,14 @@ public class StationRegistry {
             if (pending.isCompletedExceptionally()) return true;
 
             StationStream stream = pending.join();
-            boolean finished = !stream.alive() || stream.idleLongerThan(props.getIdleGraceSeconds());
+            boolean died = !stream.alive();
+            boolean finished = died || stream.idleLongerThan(props.getIdleGraceSeconds());
             if (finished) {
                 stream.stop();
+                if (died) {
+                    String key = entry.getKey();
+                    resolver.evict(key.substring(0, key.indexOf('@')));
+                }
                 log.info("released {}", entry.getKey());
             }
             return finished;

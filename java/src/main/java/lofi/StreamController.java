@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /** The whole HTTP surface: three endpoints. */
@@ -91,8 +92,12 @@ public class StreamController {
                 out.flush();
 
                 while (true) {
-                    byte[] block = queue.take();
-                    if (block == StationStream.END) return;
+                    // A timeout, not take(). A listener dropped for being slow is
+                    // never sent END, and a station can go quiet without ending;
+                    // either way take() parked this thread for good. Overnight that
+                    // left 63 of them holding sockets the page had long closed.
+                    byte[] block = queue.poll(30, TimeUnit.SECONDS);
+                    if (block == null || block == StationStream.END) return;
                     out.write(block);
                     out.flush();
                 }

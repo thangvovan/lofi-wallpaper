@@ -89,4 +89,15 @@ public class YoutubeResolver {
         log.info("resolved {}", videoId);
         return url;
     }
+
+    /**
+     * Forgets a URL once the stream started from it has died.
+     *
+     * Whatever killed it, the URL is suspect now. Left in the cache it would be
+     * handed to every retry until the TTL ran out, so a manifest that stopped
+     * working would keep starting an ffmpeg that exits at once.
+     */
+    void evict(String videoId) {
+        cache.remove(videoId);
+    }
 }

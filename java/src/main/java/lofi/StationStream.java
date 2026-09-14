@@ -44,6 +44,12 @@ final class StationStream {
     /** Sentinel placed on every subscriber queue when the stream finishes. */
     static final byte[] END = new byte[0];
 
+    /**
+     * How long ffmpeg may go without writing before it counts as dead. A cold
+     * start takes about 3.8s, so this is far past any healthy pause.
+     */
+    private static final long STALL_NANOS = TimeUnit.SECONDS.toNanos(30);
+
     private final String videoId;
     private final int bitrate;
     private final int queueSize;
@@ -53,6 +59,7 @@ final class StationStream {
     private volatile byte[] header;
     private volatile Process process;
     private volatile long emptySince = System.nanoTime();
+    private volatile long lastOutput = System.nanoTime();
 
     StationStream(String videoId, int bitrate, int queueSize) {
         this.videoId = videoId;
@@ -77,6 +84,7 @@ final class StationStream {
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.redirectError(ProcessBuilder.Redirect.DISCARD);
         process = pb.start();
+        lastOutput = System.nanoTime();
 
         Thread.ofVirtual().name("pump-" + videoId).start(this::pump);
         log.info("started {} at {}k", videoId, bitrate);
@@ -101,6 +109,7 @@ final class StationStream {
                 }
                 System.arraycopy(chunk, 0, pending, len, n);
                 len += n;
+                lastOutput = System.nanoTime();
 
                 // Search from offset 1 so a boundary sitting at the start of the
                 // buffer is not rediscovered on every pass.
@@ -165,9 +174,18 @@ final class StationStream {
         return headerReady.await(timeoutSeconds, TimeUnit.SECONDS) ? header : null;
     }
 
+    /**
+     * Running and still producing.
+     *
+     * A running process is not enough. When ffmpeg loses its segments it can sit
+     * with its connections half-closed, never writing and never exiting: measured
+     * overnight, one wrote nothing for two and a half hours. Reported as alive, it
+     * was handed to every new listener, who got a header and then silence.
+     */
     boolean alive() {
         Process p = process;
-        return p != null && p.isAlive();
+        return p != null && p.isAlive()
+                && System.nanoTime() - lastOutput < STALL_NANOS;
     }
 
     int listeners() {

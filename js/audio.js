@@ -73,6 +73,14 @@
          screen for doing the right thing. */
       if (err.name === 'AbortError') return;
 
+      /* NotSupportedError is not news either. It is how play() reports any load
+         that failed - a 502 because the network was not back yet after a wake,
+         a refused connection - and the media element's own error event reports
+         the same failure and schedules the retry. Reporting it here too put the
+         raw message on screen while the retry was already fixing it, and skipped
+         the reconnect handler's rule of staying quiet for the first attempts. */
+      if (err.name === 'NotSupportedError') return;
+
       // NotAllowedError is an autoplay block, not a stream problem - a different
       // fault with a different fix, so the two must not be reported alike.
       emit('error', {
@@ -141,8 +149,19 @@
     frozen = (now === lastTime) ? frozen + 1 : 0;
     lastTime = now;
 
-    if (audio.paused || frozen >= 2) {
+    if (audio.paused) {
       frozen = 0;
+      attach();
+    } else if (frozen >= 2) {
+      /* A hang raises no error: the server can hold the request open with
+         nothing to send. Re-attaching quietly here meant a hang never counted as
+         a failure, so the notice sat on a stale retry count all night while the
+         wallpaper kept reconnecting to an ffmpeg that had stopped writing. It
+         counts now, the same as an error does. Same station either way - the
+         server replaces a stalled ffmpeg, so reconnecting is what recovers. */
+      frozen = 0;
+      attempt++;
+      emit('reconnecting', { station: station, attempt: attempt, why: 'no audio' });
       attach();
     }
   }, 8000);

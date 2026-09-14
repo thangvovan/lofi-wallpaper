@@ -89,7 +89,7 @@
     window.UI.setPlayingState(false);
     window.UI.setName(info.station, 'reconnecting…');
     if (info.attempt >= 3) {
-      window.UI.setNotice('Cannot reach the audio server (' + info.why +
+      window.UI.setNotice('No audio from the server (' + info.why +
                           ') - retry ' + info.attempt);
     }
   });
