@@ -128,6 +128,44 @@
     return out;
   }
 
+  /* InnerTube wants a WEB clientVersion - omit it and the browse answers 400 -
+     and it refuses an old one with a bare 500 ("Internal error encountered",
+     backendError) whatever the content type, which leaves the list empty. The
+     constant 2.20240101.01.00 that shipped here for a year now gets exactly that.
+
+     A constant is the wrong shape for this, because the version is only a date
+     and the server accepts a wide range of them. Measured against this playlist
+     on 2026-09-18:
+
+       2.20250401.00.00 and older    500
+       2.20250501.00.00             200
+       today                        200
+       2.20270601.00.00             200
+
+     So about sixteen months back is still served, and a future date is not checked
+     at all. Building the version off the clock therefore keeps working on its own,
+     without the wallpaper having to look anything up - which it could not do
+     anyway: the current version sits on youtube.com's home page as
+     INNERTUBE_CLIENT_VERSION, but that page sends no Access-Control-Allow-Origin,
+     so a file:// page cannot read it. (The browse endpoint does send it, which is
+     why any of this works at all. Its reply only echoes back the version we sent,
+     so there is nothing to learn from a successful response either.)
+
+     FLOOR covers the one way the clock can betray this: set far enough back, it
+     would build a version YouTube has already dropped. Set forward it is fine.
+     ../lofi-bot runs server-side, has neither limit, and reads the home page. */
+  const FLOOR = '2.20260910.01.00';
+
+  /* "2.<YYYYMMDD>.<build>.00" - only the date carries any weight here, so the
+     build number is left at zero. UTC, so the timezone cannot change the answer. */
+  function clientVersion(now) {
+    const d = now || new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dated = '2.' + d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + '.00.00';
+    // Fixed width, so comparing the strings compares the dates.
+    return dated > FLOOR ? dated : FLOOR;
+  }
+
   async function load() {
     const res = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', {
       method: 'POST',
@@ -140,7 +178,7 @@
         context: {
           client: {
             clientName: 'WEB',
-            clientVersion: '2.20240101.01.00',
+            clientVersion: clientVersion(),
             hl: 'en',
             gl: 'US'
           }

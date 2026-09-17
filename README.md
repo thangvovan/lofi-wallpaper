@@ -158,6 +158,19 @@ Nothing is stored between runs, so the wallpaper waits about half a second for
 the list on every start and has nothing to fall back on if the fetch fails -
 `main.js` retries every 15 seconds rather than leaving an empty panel.
 
+InnerTube refuses an old WEB `clientVersion` with a bare 500, which is how the
+baked-in `2.20240101.01.00` eventually broke the list. The page cannot look the
+current version up: it is on youtube.com's home page as
+`INNERTUBE_CLIENT_VERSION`, but that page sends no `Access-Control-Allow-Origin`,
+so a `file://` page cannot read it, and a successful browse only echoes back
+whatever version was sent.
+
+It does not need to. The version is just a date, and a wide range is accepted -
+measured on 2026-09-18, `2.20250401.00.00` and older answer 500, `2.20250501.00.00`
+through today answer 200, and a date as far ahead as 2027 is not questioned at
+all. So `playlist.js` builds `2.<today in UTC>.00.00` at runtime and stays current
+by itself, with a floor for the case of a clock set years in the past.
+
 ## Input inside Wallpaper Engine
 
 Probed in the real surface, because it is not what a browser would suggest:
