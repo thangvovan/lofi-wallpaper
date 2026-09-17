@@ -6,7 +6,6 @@ the artwork, a clock and a station list.
 ```
 css/     the wallpaper's styling
 js/      the wallpaper itself - clock, station list, artwork, audio
-java/    the server that turns a YouTube live radio into playable audio
 ```
 
 The wallpaper cannot play a YouTube live stream on its own. Everything below is a
@@ -35,7 +34,7 @@ belongs to the page, not to a separate process.
 ## Installing the wallpaper
 
 ```bash
-java -jar java/target/lofi-server.jar --install
+java -jar ../lofi-server/target/lofi-server.jar --install
 ```
 
 Opening a wallpaper by file path is not the same as having it installed. Wallpaper
@@ -55,7 +54,7 @@ history and the CI config are not part of the wallpaper, and Wallpaper Engine
 scans everything it is given.
 
 ```bash
-java -jar java/target/lofi-server.jar --install --link    # while working on it
+java -jar ../lofi-server/target/lofi-server.jar --install --link   # while working on it
 ```
 
 `--link` makes a junction instead, so the installed wallpaper *is* the working
@@ -67,80 +66,23 @@ Restart Wallpaper Engine afterwards, then pick **Lofi Girl Wallpaper Radio** fro
 Installed. `--uninstall` removes whichever of the two is there - and knows the
 difference, since deleting a junction's contents would delete the working tree.
 
-## Running the server
+## The server
 
-Locally:
+The server lives in its own repository, [lofi-server](../lofi-server), along with
+its Dockerfile, its deploy workflow and the measurements behind it. It is a
+Spring Boot app on a VM; this is 54 KiB of static files inside Wallpaper Engine.
+They shared a folder and nothing else.
 
-```bash
-cd java
-mvn package -DskipTests
-java -jar target/lofi-server.jar
-```
+Set **Audio server URL** in the wallpaper's properties to point at it. The
+default is `http://127.0.0.1:8477`, which is a server running on the same machine
+as the wallpaper.
 
-Or in Docker, which brings its own ffmpeg:
+Plain HTTP is deliberate and not a shortcut: the wallpaper is a `file://` page
+rather than an `https://` one, so it is not subject to mixed-content blocking and
+can pull audio from an `http://` origin.
 
-```bash
-docker compose up -d --build      # in java/
-```
-
-Then set **Audio server URL** in the wallpaper's properties. It defaults to
-`http://127.0.0.1:8477`; point it at your server to move the work off the machine
-running the wallpaper.
-
-| Endpoint | |
-|---|---|
-| `GET /stream?id=<videoId>&q=<kbps>` | the audio, as WebM/Opus |
-| `GET /api/health` | ffmpeg version and the live stations |
-| `GET /api/resolve?id=<videoId>` | resolving on its own, for diagnosis |
-
-`/api/resolve` is the first thing to run against a new host: it is the call that
-fails when an IP sits in a range YouTube treats as a datacenter, and it costs no
-bandwidth worth counting.
-
-## Deploying
-
-`.github/workflows/deploy.yml` rsyncs `java/` to a VM over SSH and rebuilds the
-container there. Set `SSH_HOST`, `SSH_USER` and `SSH_KEY` as repository secrets.
-
-Plain HTTP is the default. The wallpaper is a `file://` page rather than an
-`https://` one, so it is not subject to mixed-content blocking and can pull audio
-from an `http://` origin. If you own a domain and would rather not stream in the
-clear, `docker compose --profile tls up -d` puts Caddy in front and it obtains its
-own certificate.
-
-### Bandwidth
-
-One listener, measured at steady state on a warm station:
-
-| `?q=` | Audio | HTTP requests | Total | 16 h/day, 31-day month |
-|---|---|---|---|---|
-| 32 (default) | 16.1 MB/h | 4.0 MB/h | 20.1 MB/h | **10.0 GB** |
-| 48 | 19.4 | 4.0 | 23.4 | 11.6 GB |
-| 96 | ~37 | 4.0 | ~41 | 20.3 GB |
-
-The request line is not noise: ffmpeg issues about 2,340 requests an hour, each
-carrying a googlevideo URL around 1,241 characters long. The ~93 GB/month of
-segments coming *down* is inbound, which hosts generally do not bill.
-
-That rules out several free tiers. Render's Hobby workspace includes 5 GB of
-outbound a month, which is about 8 hours of listening a day. Oracle Cloud's
-Always Free tier includes 10 TB, which this does not come close to.
-
-## How the server works
-
-One ffmpeg per station, not per listener. On a small host the CPU limit binds long
-before bandwidth does, and sharing doubles as the latency fix: joining a station
-that is already running costs about one cluster (~1 s) against the ~3.8 s a cold
-start takes - 0.65 s to resolve, then ~3.1 s before ffmpeg emits anything.
-
-Sharing a live WebM stream means new listeners cannot simply be handed the current
-bytes: they need the EBML header and Tracks first. `StationStream` keeps that init
-segment and splices each new listener in at the next cluster boundary.
-
-A station is stopped 15 seconds after its last listener leaves. The delay is not
-politeness - starting one makes ffmpeg pull the whole HLS window at once, costing
-roughly twice the steady rate for the first twenty seconds, so riding out a brief
-reconnect is cheaper than paying that again.
+`GET /api/health` on that URL reports the ffmpeg it found and the live stations,
+which is the quickest way to tell a wrong URL from a broken server.
 
 ## The station list
 

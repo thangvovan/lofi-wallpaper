@@ -1,4 +1,4 @@
-/* Audio: a single <audio> element pointed at the server in java/.
+/* Audio: a single <audio> element pointed at the lofi-server instance.
 
    The wallpaper used to drive a local process that put sound on the system
    device, which meant it also had to own a session id, a heartbeat and a watchdog

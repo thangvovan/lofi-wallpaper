@@ -12,7 +12,7 @@
    playlist: 200, 23 stations.
 
    None of this costs the audio server anything; the wallpaper talks to YouTube
-   directly, and only the audio goes through java/.
+   directly, and only the audio goes through lofi-server.
 
    There is no baked copy to fall back on, so main.js retries until this works
    rather than leaving the wallpaper with an empty list. */
