@@ -19,6 +19,53 @@
   const audio = new Audio();
   audio.preload = 'none';
   audio.autoplay = false;
+  // Lets the visualizer read the samples: without it the stream is opaque to Web
+  // Audio and the analyser sees only zeros. The server answers with
+  // Access-Control-Allow-Origin: *, so playback itself is unaffected.
+  audio.crossOrigin = 'anonymous';
+
+  /* The visualizer listens to this element and nothing else - never the system
+     mix - so it moves with the radio and stays still for anything else playing.
+
+     Once an element is routed into Web Audio it is only heard through the
+     context, so the graph is built only after the context is confirmed running.
+     Until then the element plays on its own, exactly as before. The volume moves
+     to a gain node after the analyser, so the bars do not shrink with the volume. */
+  let ctx = null;
+  let analyser = null;
+  let gain = null;
+
+  function ensureGraph() {
+    if (analyser) {
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!ctx) ctx = new AC();
+    ctx.resume().then(() => {
+      if (analyser || ctx.state !== 'running') return;
+      const source = ctx.createMediaElementSource(audio);
+      analyser = ctx.createAnalyser();
+      // Fine enough that the many narrow bass bars of a wide meter each get a bin.
+      analyser.fftSize = 8192;
+      analyser.smoothingTimeConstant = 0.78;
+      gain = ctx.createGain();
+      source.connect(analyser);
+      analyser.connect(gain);
+      gain.connect(ctx.destination);
+      applyVolume();
+    }).catch(() => {});
+  }
+
+  function applyVolume() {
+    if (gain) {
+      audio.volume = 1;
+      gain.gain.value = wantedVolume();
+    } else {
+      audio.volume = wantedVolume();
+    }
+  }
 
   let station = null;
   let live = false;
@@ -63,7 +110,8 @@
 
   function attach() {
     if (!station) return;
-    audio.volume = wantedVolume();
+    ensureGraph();
+    applyVolume();
     audio.src = streamUrl(station);
     audio.play().catch(err => {
       /* AbortError is not a fault. play() returns a promise that only settles
@@ -193,9 +241,7 @@
 
     /* No restart needed, unlike the old external player: a media element can be
        re-levelled while it plays. */
-    applyVolume() {
-      audio.volume = wantedVolume();
-    },
+    applyVolume: applyVolume,
 
     async helperUp() {
       try {
@@ -210,6 +256,7 @@
     resume() { if (station) attach(); },
 
     on: on,
-    get playing() { return live; }
+    get playing() { return live; },
+    get analyser() { return analyser; }
   };
 })();

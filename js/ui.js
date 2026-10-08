@@ -26,6 +26,7 @@
 
   function setPlayingState(isPlaying) {
     $('np-eq').classList.toggle('paused', !isPlaying);
+    if (window.Visualizer) window.Visualizer.setActive(isPlaying);
   }
 
   /* ---------- audio status ---------- */

@@ -1,54 +1,56 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lofi Girl Wallpaper</title>
-<link rel="stylesheet" href="css/style.css?v=36">
-</head>
-<body>
-  <!-- Background: two layers so station artwork can crossfade -->
-  <div id="bg">
-    <div class="bg-layer" id="bg-a"><div class="bg-blur"></div><div class="bg-main"></div></div>
-    <div class="bg-layer" id="bg-b"><div class="bg-blur"></div><div class="bg-main"></div></div>
-  </div>
-
-  <div id="grade"></div>
-  <div id="vignette"></div>
-  <div id="grain"></div>
-
-  <!-- Clock, with the station list tucked under it -->
-  <div id="corner">
-    <div id="clock" class="hud">
-      <div id="clock-time">--:--</div>
-      <div id="clock-date"></div>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Lofi Wallpaper</title>
+    <link rel="stylesheet" href="css/style.css?v=40">
+  </head>
+  <body>
+    <!-- Background -->
+    <div id="bg">
+      <div class="bg-layer" id="bg-a"><div class="bg-blur"></div><div class="bg-main"></div></div>
+      <div class="bg-layer" id="bg-b"><div class="bg-blur"></div><div class="bg-main"></div></div>
     </div>
 
-    <nav id="stations" aria-label="Wallpapers">
-      <div class="stations-head">wallpapers</div>
-      <ul id="station-list"></ul>
-    </nav>
-  </div>
+    <div id="grade"></div>
+    <div id="vignette"></div>
+    <div id="grain"></div>
 
-  <!-- Current wallpaper + what is playing -->
-  <div id="np" class="hud">
-    <div id="np-eq"><i></i><i></i><i></i><i></i><i></i></div>
-    <div id="np-text">
-      <div id="np-title">—</div>
-      <div id="np-sub">lofi girl</div>
+    <!-- Clock and the station list -->
+    <div id="corner">
+      <div id="clock" class="hud">
+        <div id="clock-time">--:--</div>
+        <div id="clock-date"></div>
+      </div>
+
+      <nav id="stations" aria-label="Wallpapers">
+        <div class="stations-head">Lofi Wallpaper</div>
+        <ul id="station-list"></ul>
+      </nav>
     </div>
-  </div>
 
-  <!-- Only appears when audio fails, so the reason is readable off the wallpaper
-       itself instead of needing Wallpaper Engine's CEF devtools port. -->
-  <div id="notice" class="hidden"><span id="notice-text"></span></div>
+    <!-- Current wallpaper -->
+    <div id="np" class="hud">
+      <div id="np-eq"><i></i><i></i><i></i><i></i><i></i></div>
+      <div id="np-text">
+        <div id="np-title">—</div>
+        <div id="np-sub">Lofi Wallpaper</div>
+      </div>
+    </div>
 
-  <script src="js/playlist.js?v=36"></script>
-  <script src="js/settings.js?v=36"></script>
-  <script src="js/background.js?v=36"></script>
-  <script src="js/audio.js?v=36"></script>
-  <script src="js/visibility.js?v=36"></script>
-  <script src="js/ui.js?v=36"></script>
-  <script src="js/main.js?v=36"></script>
-</body>
+    <!-- Visualizer -->
+    <div id="viz" class="hud">
+      <canvas id="viz-canvas"></canvas>
+    </div>
+
+    <script src="js/playlist.js?v=40"></script>
+    <script src="js/settings.js?v=40"></script>
+    <script src="js/background.js?v=40"></script>
+    <script src="js/audio.js?v=40"></script>
+    <script src="js/visualizer.js?v=40"></script>
+    <script src="js/visibility.js?v=40"></script>
+    <script src="js/ui.js?v=40"></script>
+    <script src="js/main.js?v=40"></script>
+  </body>
 </html>
