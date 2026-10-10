@@ -183,6 +183,30 @@
         "type": "color",
         "value": "0.847059 0.780392 0.658824"
       },
+      "vizstyle": {
+        "order": 38,
+        "text": "Visualizer",
+        "type": "combo",
+        "value": "wave",
+        "options": [
+          {
+            "label": "Wave",
+            "value": "wave"
+          },
+          {
+            "label": "Bars",
+            "value": "bars"
+          },
+          {
+            "label": "Dots",
+            "value": "dots"
+          },
+          {
+            "label": "Off",
+            "value": "off"
+          }
+        ]
+      },
       "sec_audio": {
         "order": 10,
         "text": "── Audio ──",

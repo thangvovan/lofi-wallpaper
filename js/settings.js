@@ -24,6 +24,7 @@
     clock24h   : true,
     showName   : true,
     hudOpacity : 100,
+    vizStyle   : 'wave',     // 'wave' | 'bars' | 'dots' | 'off'
     accent     : '216,199,168'
   };
 
@@ -62,6 +63,7 @@
     toggle('stations', S.showList);
     toggle('clock', S.showClock);
     toggle('np', S.showName);
+    toggle('viz', S.vizStyle !== 'off');
   }
 
   /* Wallpaper Engine hands colours over as "r g b" floats in 0..1 */
@@ -84,7 +86,7 @@
     dim: 'dim', blur: 'blur', saturation: 'saturation', vignette: 'vignette',
     grain: 'grain', showlist: 'showList', listopacity: 'listOpacity',
     showclock: 'showClock', clock24h: 'clock24h',
-    showname: 'showName', hudopacity: 'hudOpacity'
+    showname: 'showName', hudopacity: 'hudOpacity', vizstyle: 'vizStyle'
   };
 
   window.wallpaperPropertyListener = {
